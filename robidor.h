@@ -18,6 +18,14 @@ struct WallPlacement{
   WallPlacement(bool horizontal, int x, int y): horizontal(horizontal), x(x), y(y) {}
 };
 
+struct playMove{
+  bool isWall;
+  bool horizontal;
+  int x;
+  int y;
+  playMove(bool isWall, bool horizontal, int x, int y): isWall(isWall), horizontal(horizontal), x(x), y(y) {}
+};
+
 // //implement a struct for the player to be sort the information
 // struct Player{
 //   int playerID;
@@ -34,9 +42,20 @@ struct Move{
   Move(int x, int y): x(x), y(y) {}
 };
 
+// struct Node
+// {
+//   int x, y;
+//   int dist;
+//   std::vector<Move> backtrack;
+//   Node(int x, int y, int dist, std::vector<Move> backtrack = {})
+//   : x(x), y(y), dist(dist), backtrack(std::vector<Move> {Move(x,y)}) {};
+//   bool operator==(const Node& other) const{return x == other.x && y == other.y;} 
+// };
+
 class robidor {
   public:
     // Player playerOne;
+    int turn;
     int playerOneX;
     int playerOneY;
     int playerOneGoal;
@@ -52,6 +71,7 @@ class robidor {
     robidor();
     robidor(robidor& other);
     bool isGameOver();
+
     int getWinner();
     int getPlayer(int x, int y);
     void movePlayer(char Direction);
@@ -65,7 +85,14 @@ class robidor {
     std::vector<Move> avalMove();
     bool checkPathExistsForPlayer(int x, int y, int goal);
     bool isWallValid(bool horizontal, int x, int y);
-    std::vector<std::vector<int>> bfsBestPath(int x, int y, bool playerOneTurn, bool goal);
+    std::pair<int,std::vector<Move>> bfsBestPath(int x, int y, bool goal, bool playerTurn);
+    playMove evalBFS();
+    void copyAPI(int otherBoard[9][9], bool otherWall[10][10]);
+    void reset();
+
+    void sendWall(int x1, int x2, int y1, int y2);
+    bool detectWall();
+
 };
 
 

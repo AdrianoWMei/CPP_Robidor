@@ -3,11 +3,13 @@
 #include <queue>
 #include "robidor.h"
 
+// #define DEBUG
+
 using namespace std;
 //player one start (4,0) end goal (x,8)
 //p2 start (4,8), end goal(x,0)
 robidor::robidor()
-    : playerOneX(4), playerOneY(0), playerOneGoal(8), playerTwoX(4), playerTwoY(8), playerTwoGoal(0), playerOneWall(10), playerTwoWall(10), winner(0), playerOneTurn(true)
+    :turn(0), playerOneX(4), playerOneY(8), playerOneGoal(8), playerTwoX(4), playerTwoY(0), playerTwoGoal(0), playerOneWall(10), playerTwoWall(10), winner(0), playerOneTurn(true)
     {
         for (int y = 0; y < 10; ++y) {
             for (int x = 0; x < 10; ++x) {
@@ -24,8 +26,22 @@ robidor::robidor()
                 board[y][x].wallRight = false;
             }
         }
-        board[playerOneY][playerOneX].player = 1;
-        board[playerTwoY][playerTwoX].player = 2;
+        // //2d array loop
+        // for (int y = 0; y < 9; ++y){
+        //     for(int x = 0; x < 9; ++x){
+        //         board[y][x].player = input from bits;
+        //     }
+        // }
+
+        // for (int y = 0; y < 10; ++y){
+        //     for(int x = 0; x < 10; ++x){
+        //         wall[y][x] = bit coe;
+        //     }
+        // }
+
+
+        board[0][4].player = 1;
+        board[8][4].player = 2;
     };
 
 robidor::robidor(robidor& other)
@@ -54,11 +70,11 @@ robidor::robidor(robidor& other)
 
 bool robidor::isGameOver()
     {
-      if(playerOneY == 8){
+      if(playerOneY == 0){
         winner = 1;
         return true;
       }
-      else if(playerTwoY == 0){
+      else if(playerTwoY == 8){
         winner = 2;
         return true;
       }
@@ -80,7 +96,9 @@ void robidor::movePlayer(char direction)
 {
     int& currentX = playerOneTurn ? playerOneX : playerTwoX;
     int& currentY = playerOneTurn ? playerOneY : playerTwoY;
-    int currentPlayer = playerOneTurn ? 1 : 2;
+    int& otherX = playerOneTurn ? playerTwoX : playerOneX;
+    int& otherY = playerOneTurn ? playerTwoY : playerOneY;
+    int currentPlayer = !playerOneTurn ? 1 : 2;
 
     // Calculate new position based on direction
     int newX = currentX, newY = currentY;
@@ -94,25 +112,64 @@ void robidor::movePlayer(char direction)
 
     // Boundary check
     if (newX < 0 || newX >= 9 || newY < 0 || newY >= 9) {
+        #ifdef DEBUG
         std::cout << "Outer bound error" << std::endl;
+        #endif
         return;
     }
 
     // Wall check (assuming you have a function or logic to check for walls)
     if (isWallBetween(currentX, currentY, newX, newY)) {
+        #ifdef DEBUG 
         std::cout << "Wall blocking the way" << std::endl;
+        #endif
         return;
     }
-
+    if (newX == otherX && newY == otherY)
+    {
+        
+    }
     // Move player
-    move(newX, newY);
+    else
+    {move(newX, newY);}
 }
 
 void robidor::move (int dX, int dY)
 {
+    std::cout<<dX<<" "<<dY<<std::endl;
     int& currentX = playerOneTurn ? playerOneX : playerTwoX;
     int& currentY = playerOneTurn ? playerOneY : playerTwoY;
+    int& otherX = !playerOneTurn ? playerOneX : playerTwoX;
+    int& otherY = !playerOneTurn ? playerOneY : playerTwoY;
     int currentPlayer = playerOneTurn ? 1 : 2;
+    int otherPlayer = !playerOneTurn ? 1 : 2;
+
+
+    // if(board[dX][dY].player == otherPlayer)
+    // {
+    //East/right
+    if(currentX - dX == -1)
+    {
+        // if(board[dY][dX])
+        std::cout<<"West"<<std::endl;
+    }
+    //left
+    if(currentX - dX == 1)
+    {
+        std::cout<<"left"<<std::endl;
+    }
+    //down
+    if(currentY - dY == -1)
+    {
+        std::cout<<"down"<<std::endl;
+    }
+    //north/up
+    if(currentY - dY == 1)
+    {
+        std::cout<<"up"<<std::endl;
+    }
+    // }
+
 
     board[currentY][currentX].player = 0; // Clear current position
     board[dY][dX].player = currentPlayer; // Set new position  
@@ -128,6 +185,21 @@ void robidor::buildWall(bool horizontal, int x, int y)
     else
     {
         playerTwoWall--;
+    }
+
+    if(x > 7 || x < 0)
+    {
+        #ifdef DEBUG
+        std::cout<<"out of bounds"<<std::endl;
+        #endif
+        return;
+    }
+    if(y > 7 || y < 0)
+    {
+        #ifdef DEBUG
+        std::cout<<"out of bounds"<<std::endl;
+        #endif
+        return;
     }
 
     if(horizontal)
@@ -163,7 +235,9 @@ void robidor::removeWall(bool horizontal, int x, int y)
     if(horizontal)
     {
         if(x+1 > 9){
+            #ifdef DEBUG
             std::cout<<"out of bounds";
+            #endif
             return;
         }
         for (int i = 0; i <= 1; i++) {
@@ -175,7 +249,9 @@ void robidor::removeWall(bool horizontal, int x, int y)
     else
     {
         if(y +1 > 9){
+            #ifdef DEBUG
             std::cout<<"out of bounds";
+            #endif
             return;
         }
         // Place wall in 'wall' array and update 'board' cell edges accordingly
@@ -237,6 +313,7 @@ void robidor::printBoard() {
 
 void robidor::changeTurn(){
     playerOneTurn = !playerOneTurn;
+    turn += 1;
 }
 
 bool robidor::isWallBetween(int x1, int y1, int x2, int y2) {
@@ -361,27 +438,27 @@ bool robidor::isWallValid(bool horizontal, int x, int y) {
     if(horizontal)
     {
         if(x+1 > 9){
-            std::cout<<"out of bounds";
+            // std::cout<<"out of bounds";
             return false;
         }
         for (int i = 0; i <= 1; i++) {
             if(wall[y][x+i] == true)
             {
-                std::cout<<"a wall already exist here!"<<std::endl;
+                // std::cout<<"a wall already exist here!"<<std::endl;
                 return false;
             }
         }
     }else
     {
-        if(y +1 > 9){
-            std::cout<<"out of bounds";
+        if(y + 1 > 9){
+            // std::cout<<"out of bounds";
             return false;
         }
         // Place wall in 'wall' array and update 'board' cell edges accordingly
         for (int i = 0; i <= 1; i++) {
             if(wall[y+i][x] == true)
             {
-                std::cout<<"a wall already exist here!"<<std::endl;
+                // std::cout<<"a wall already exist here!"<<std::endl;
                 return false;
             }
         }
@@ -400,18 +477,508 @@ bool robidor::isWallValid(bool horizontal, int x, int y) {
     return playerOneHasPath && playerTwoHasPath;
 }
 
-std::vector<std::vector<int>> robidor::bfsBestPath(int x, int y, bool playerOneTurn, bool goal)
+//This function takes a player's turn and coordinates to generate a 2d vector of the possible cells that the player can reach.
+//The vector includes information on the distance (aka moves needed to reach there) and the path taken to reach it.
+//It uses a BFS approach to search the possible locations.
+std::pair<int,std::vector<Move>> robidor::bfsBestPath(int x, int y, bool goal, bool playerTurn)
 {
+    int currentGoal = !playerTurn ? playerOneGoal : playerTwoGoal;
+    // std::cout<<currentGoal<<std::endl;
+    int enemyID = !playerTurn ? 1 : 2;
     std::vector<std::vector<int>> visited(9,std::vector<int>(9,-1));
+    std::vector<std::vector<std::vector<Move>>> moveMap(9, std::vector<std::vector<Move>>(9, std::vector<Move>(1, Move(-1, -1))));
+    // std::vector<std::vector<std::<queue<Move>>>> moveList(9,std::vector<int>(9,Move(x,y)));
+    struct Node
+    {
+        int x, y;
+        int dist;
+        std::vector<Move> backtrack;
+        Node(int x, int y, int dist, std::vector<Move> backtrack = {})
+        : x(x), y(y), dist(dist), backtrack(std::vector<Move> {Move(x,y)}) {};
+        bool operator==(const Node& other) const{return x == other.x && y == other.y;} 
+    };
+
+    std::queue<Node> gameQ;
+    std::vector<Move> initialMove;
+    std::vector<Move> winningPath;
+
+    initialMove.push_back(Move(x,y));
+    moveMap[y][x] = initialMove;
+    gameQ.push(Node(x,y,0,initialMove));
+    // #ifdef DEBUG
+    // std::cout<<"Initial Move"<<std::endl;
+    // std::cout<<moveMap[x][y].front().x<<","<<moveMap[x][y].front().y<<std::endl;
+    // #endif
+    visited[y][x] = 0;
+    while(!gameQ.empty()){
+        Node currN = gameQ.front();
+        // std::cout<<enemyID<<std::endl;
+        gameQ.pop();
+        // #ifdef DEBUG
+        //     std::cout<<currN.x<< " "<< currN.y <<std::endl;
+        //     std::cout<<currentGoal<<std::endl;
+        // #endif
+        if(goal && currentGoal == currN.y) {
+            break;}
+        if(currN.y + 1 < 9 && visited[currN.y+1][currN.x] < 0 && !isWallBetween(currN.x, currN.y,currN.x,currN.y+1))
+        {
+            if(board[currN.y+1][currN.x].player == enemyID && currN.y + 1 != 8)
+            {
+                visited[currN.y+1][currN.x] = 0;
+                if (!isWallBetween(currN.x, currN.y+1,currN.x,currN.y+2) && currN.y + 2 < 9 && visited[currN.y+2][currN.x] < 0) 
+                {
+                    //Enemy player is in the attempted-to-reach position
+                    //gamerule - attempt to jump over the player
+                    //if condition checks 1. no wall behind the player
+                    //2. position has not been reached before 3. boundary check
+                    //queues the position behind the player
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x, currN.y+2));
+                    moveMap[currN.y+2][currN.x] = currPath;
+                    visited[currN.y+2][currN.x] = currN.dist + 1;
+                    if(goal && currentGoal == currN.y+2) {break;}
+                    gameQ.push(Node(currN.x,currN.y+2, currN.dist+1,currPath));
+                }
+                else
+                {
+                if(!isWallBetween(currN.x,currN.y+1,currN.x+1,currN.y+1) && currN.x+1 < 9 && (visited[currN.y+1][currN.x+1] < 0 || currN.dist < visited[currN.y+1][currN.x+1]))
+                    {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x+1, currN.y+1));
+                    moveMap[currN.y+1][currN.x+1] = currPath;
+                    visited[currN.y+1][currN.x+1] = currN.dist + 1;
+                    if(goal && currentGoal == currN.y+2) {break;}
+                    gameQ.push(Node(currN.x+1,currN.y+1, currN.dist+1,currPath));
+                    }
+                if(!isWallBetween(currN.x,currN.y+1,currN.x-1,currN.y+1) && currN.x-1 >= 0 && (visited[currN.y+1][currN.x-1] < 0 || currN.dist < visited[currN.y+1][currN.x-1]))
+                    {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x-1, currN.y+1));
+                    moveMap[currN.y+1][currN.x-1] = currPath;
+                    visited[currN.y+1][currN.x-1] = currN.dist + 1;
+                    if(goal && currentGoal == currN.y+2) {break;}
+                    gameQ.push(Node(currN.x-1,currN.y+1, currN.dist+1,currPath));
+                    }
+                }
+            }
+            else{
+            std::vector<Move> currPath = moveMap[currN.y][currN.x];
+            currPath.push_back(Move(currN.x, currN.y+1));
+            moveMap[currN.y+1][currN.x] = currPath;
+            visited[currN.y+1][currN.x] = currN.dist + 1;
+            if(goal && currentGoal == currN.y+1) {break;}
+            gameQ.push(Node(currN.x,currN.y+1, currN.dist+1,currPath));}
+        }
+        if(currN.y - 1 >= 0 && visited[currN.y-1][currN.x] < 0 && !isWallBetween(currN.x, currN.y,currN.x,currN.y-1))
+        {
+            if(board[currN.y-1][currN.x].player == enemyID)
+            {
+                visited[currN.y-1][currN.x] = 0;
+                if (!isWallBetween(currN.x, currN.y-1,currN.x,currN.y-2) && currN.y - 2 >= 0 && visited[currN.y-2][currN.x] < 0) 
+                {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x, currN.y-2));
+                    moveMap[currN.y-2][currN.x] = currPath;
+                    visited[currN.y-2][currN.x] = currN.dist + 1;
+                    if(goal && currentGoal == currN.y-2) {break;}
+                    gameQ.push(Node(currN.x,currN.y-2, currN.dist+1,currPath));
+                }
+                else
+                {
+                if(!isWallBetween(currN.x,currN.y-1,currN.x+1,currN.y-1) && currN.x+1 < 9 && (visited[currN.y-1][currN.x+1] < 0 || currN.dist < visited[currN.y-1][currN.x+1]))
+                    {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x+1, currN.y-1));
+                    moveMap[currN.y-1][currN.x+1] = currPath;
+                    visited[currN.y-1][currN.x+1] = currN.dist + 1;
+                    if(goal && currentGoal == currN.y+1) {break;}
+                    gameQ.push(Node(currN.x+1,currN.y-1, currN.dist+1,currPath));
+                    }
+                if(!isWallBetween(currN.x,currN.y-1,currN.x-1,currN.y-1) && currN.x-1 >= 0 && (visited[currN.y-1][currN.x-1] < 0|| currN.dist < visited[currN.y-1][currN.x-1]))
+                    {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x-1, currN.y-1));
+                    moveMap[currN.y-1][currN.x-1] = currPath;
+                    visited[currN.y-1][currN.x-1] = currN.dist + 1;
+                    if(goal && currentGoal == currN.y+1) {break;}
+                    gameQ.push(Node(currN.x-1,currN.y-1, currN.dist+1,currPath));
+                    }
+                }   
+            }
+            else{
+            std::vector<Move> currPath = moveMap[currN.y][currN.x];
+            currPath.push_back(Move(currN.x, currN.y-1));
+            moveMap[currN.y-1][currN.x] = currPath;
+            visited[currN.y-1][currN.x] = currN.dist + 1;
+            #ifdef DEBUG2
+            // for(int i = 0; i < currPath.size(); i ++)
+            //     std::cout<<currPath.size()<<currPath[i].x<<" "<<currPath[i].y <<std::endl;
+            std::cout<<"size"<<std::endl;
+            // std::cout<<currN.backtrack.size()<<std::endl;
+            std::cout<<currPath.size()<<std::endl;
+            std::cout<<"back"<<std::endl;
+            std::cout<<" "<<currPath.back().x<<" "<<currPath.back().y <<std::endl;
+            std::cout<<"front"<<std::endl;
+            std::cout<<" "<<currPath.front().x<<" "<<currPath.front().y <<std::endl;
+            #endif
+            if(goal && currentGoal == currN.y-1) {break;}
+            gameQ.push(Node(currN.x,currN.y-1, currN.dist+1,currPath));}
+        }
+        if(currN.x + 1 < 9 && visited[currN.y][currN.x+1] < 0 && !isWallBetween(currN.x, currN.y,currN.x+1,currN.y))
+        {
+            if(board[currN.y][currN.x+1].player == enemyID)
+            {
+                visited[currN.y][currN.x+1] = 0;
+                if (!isWallBetween(currN.x+1, currN.y,currN.x+2,currN.y) && currN.x + 2 < 9 && visited[currN.y][currN.x+2] < 0) 
+                {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x+2, currN.y));
+                    moveMap[currN.y][currN.x+2] = currPath;
+                    visited[currN.y][currN.x+2] = currN.dist + 1;
+                    gameQ.push(Node(currN.x+2,currN.y, currN.dist+1,currPath));
+                }
+                else
+                {
+                if(!isWallBetween(currN.x+1,currN.y,currN.x+1,currN.y+1) && currN.y+1 < 9 && (visited[currN.y+1][currN.x+1] < 0 || currN.dist < visited[currN.y+1][currN.x+1]))
+                    {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x+1, currN.y+1));
+                    moveMap[currN.y+1][currN.x+1] = currPath;
+                    visited[currN.y+1][currN.x+1] = currN.dist + 1;
+                    if(goal && currentGoal == currN.y+1) {break;}
+                    gameQ.push(Node(currN.x+1,currN.y+1, currN.dist+1,currPath));
+                    }
+                if(!isWallBetween(currN.x+1,currN.y,currN.x+1,currN.y-1) && currN.y-1 >= 0 && (visited[currN.y-1][currN.x+1] < 0|| currN.dist < visited[currN.y-1][currN.x+1]))
+                    {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x+1, currN.y-1));
+                    moveMap[currN.y-1][currN.x+1] = currPath;
+                    visited[currN.y-1][currN.x+1] = currN.dist + 1;
+                    if(goal && currentGoal == currN.y-1) {break;}
+                    gameQ.push(Node(currN.x+1,currN.y-1, currN.dist+1,currPath));
+                    }
+                }   
+            }
+            else
+            {
+            std::vector<Move> currPath = moveMap[currN.y][currN.x];
+            currPath.push_back(Move(currN.x+1, currN.y));
+            moveMap[currN.y][currN.x+1] = currPath;
+            visited[currN.y][currN.x+1] = currN.dist + 1;
+            gameQ.push(Node(currN.x+1,currN.y, currN.dist+1,currPath));}
+        }
+        if(currN.x - 1 >= 0 && visited[currN.y][currN.x-1] < 0 && !isWallBetween(currN.x, currN.y,currN.x-1,currN.y))
+        {
+            if(board[currN.y][currN.x-1].player == enemyID)
+            {
+                visited[currN.y][currN.x-1] = 0;
+                if (!isWallBetween(currN.x-1, currN.y,currN.x-2,currN.y) && currN.x - 2 < 9 && visited[currN.y][currN.x-2] < 0) 
+                {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x-2, currN.y));
+                    moveMap[currN.y][currN.x-2] = currPath;
+                    visited[currN.y][currN.x-2] = currN.dist + 1;
+                    gameQ.push(Node(currN.x-2,currN.y, currN.dist+1,currPath));
+                }
+                else
+                {
+                if(!isWallBetween(currN.x-1,currN.y,currN.x-1,currN.y+1) && currN.y+1 < 9 && (visited[currN.y+1][currN.x-1] < 0 || currN.dist < visited[currN.y+1][currN.x-1]))
+                    {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x-1, currN.y+1));
+                    moveMap[currN.y+1][currN.x-1] = currPath;
+                    visited[currN.y+1][currN.x-1] = currN.dist + 1;
+                    if(goal && currentGoal == currN.y+1) {break;}
+                    gameQ.push(Node(currN.x-1,currN.y+1, currN.dist+1,currPath));
+                    }
+                if(!isWallBetween(currN.x-1,currN.y,currN.x-1,currN.y-1) && currN.y-1 >= 0 && (visited[currN.y-1][currN.x-1] < 0|| currN.dist < visited[currN.y-1][currN.x-1]))
+                    {
+                    std::vector<Move> currPath = moveMap[currN.y][currN.x];
+                    currPath.push_back(Move(currN.x-1, currN.y-1));
+                    moveMap[currN.y-1][currN.x-1] = currPath;
+                    visited[currN.y-1][currN.x-1] = currN.dist + 1;
+                    if(goal && currentGoal == currN.y-1) {break;}
+                    gameQ.push(Node(currN.x-1,currN.y-1, currN.dist+1,currPath));
+                    }
+                }   
+            }
+            else{
+            std::vector<Move> currPath = moveMap[currN.y][currN.x];
+            currPath.push_back(Move(currN.x-1, currN.y));
+            moveMap[currN.y][currN.x-1] = currPath;
+            visited[currN.y][currN.x-1] = currN.dist + 1;
+            gameQ.push(Node(currN.x-1,currN.y, currN.dist+1,currPath));}
+        }
+    }
+    int lowestDist = 999;
+    std::vector<Move> bt;
+    std::pair<int,std::vector<Move>> bestMove;
+    for (int i = 0 ; i < 9; i ++)
+    {
+        // std::cout<<playerOneBFS[playerOneGoal][i]<<std::endl;
+        if(visited[currentGoal][i] != -1 && visited[currentGoal][i] < lowestDist)
+        {
+            lowestDist = visited[currentGoal][i];
+            bt = moveMap[currentGoal][i];
+        }
+    }
+
+    bestMove = std::make_pair(lowestDist,bt);
+
+    #ifdef DEBUG
+    for(int i = 0; i < 9; i ++)
+    {
+        for(int j = 0; j < 9 ; j ++)
+        {
+            std::cout<<"("<<visited[i][j]<<")";
+        }
+        std::cout<<endl;
+    }
+    // std::cout<<"distance"<<std::endl;
+    // std::cout<<lowestDist<<std::endl;
+    // std::cout<<"bt"<<std::endl;
+    for(int i = 0; i < 9; i++)
+    {
+        for(int j = 0; j < 9; j ++)
+        {
+            std::cout<<"("<<visited[i][j]<<")";
+        }
+        std::cout<<std::endl;
+    }
+    
+    // std::cout<<winningPath.front().x << winningPath.front().y<<std::endl;
+    #endif
+    return bestMove;
+
+}
+
+playMove robidor::evalBFS()
+{
+    int currentGoal = !playerOneTurn ? playerOneGoal : playerTwoGoal;
+    int currentX = playerOneTurn ? playerOneX : playerTwoX;
+    int currentY = playerOneTurn ? playerOneY : playerTwoY;
+    int otherX = playerOneTurn ? playerTwoX : playerOneX;
+    int otherY = playerOneTurn ? playerTwoY : playerOneY;
+    std::pair<int,std::vector<Move>> currPlayer = bfsBestPath(currentX, currentY, true, playerOneTurn);
+    std::pair<int,std::vector<Move>> otherPlayer = bfsBestPath(otherX, otherY, true, playerOneTurn);
+
+    // std::pair<int,std::vector<Move>> wallBFSOther;
+    // std::pair<int,std::vector<Move>> wallBFSCurr;
+
+    // std::vector<WallPlacement> wallAval;
+    // WallPlacement bestwall{false,-1,-1};
+    // int lowestVal = 999;
+
+    //compare best BFS values (loop through end points to find the lowest value)
+    //if BFS for computer has lowest -> keep chasing path to it
+    //else check all possible walls and their bfs result (pick the one that minimizes computer distance + maximize enemy player distance)
+    //return the path move to reach the lowest value distanc
+    // std::cout<<currPlayer.second[1].x<<" "<<currPlayer.second[1].y<<std::endl;
+    playMove m {false, false, currPlayer.second[1].x, currPlayer.second[1].y};
+    // if(currPlayer.first < otherPlayer.first)
+    // {
+    //     return m.x = ;
+    //     //less distance --> prioritize moving
+    // }
+    // else
+    // {
+    //find the wall that increases distance
+    // int wallDistOther = 0;
+    //make sure that the wall does not increase computer distance
+    // int wallDistCurr = currPlayer.first;
+    // for(int i = 0; i < 7; i ++)
+    // {
+    //     for(int j = 0; j < 7; j ++)
+    //     {
+    //         if(isWallValid(true, i, j))
+    //         {
+    //             buildWall(true,i,j);
+    //             std::pair<int,std::vector<Move>> wallBFSOther = bfsBestPath(otherX, otherY, true, playerOneTurn);
+    //             std::pair<int,std::vector<Move>> wallBFSCurr = bfsBestPath(currentX, currentY, true, playerOneTurn);
+    //             if(wallBFSCurr.first < wallBFSOther.first && wallBFSCurr.first  < lowestVal && wallBFSCurr.first <= currPlayer.first)
+    //             {
+    //                 bestwall = WallPlacement(i,j,true);
+    //                 lowestVal = wallBFSCurr.first;
+    //                 std::cout<<"the lowest horizontal wall distance is "<< wallBFSCurr.first<<std::endl;
+    //             }
+    //             // std::cout<<wallBFSOther.first<<" "<<wallBFSCurr.first<<std::endl;
+    //             removeWall(true,i,j);
+    //         }
+    //         if(isWallValid(false, i, j))
+    //         {
+    //             buildWall(false,i,j);
+    //             std::pair<int,std::vector<Move>> wallBFSOther = bfsBestPath(otherX, otherY, true, playerOneTurn);
+    //             std::pair<int,std::vector<Move>> wallBFSCurr = bfsBestPath(currentX, currentY, true, playerOneTurn);
+    //             // std::cout<<wallBFSOther.first<<" "<<wallBFSCurr.first<<std::endl;
+    //             if(wallBFSCurr.first < wallBFSOther.first && wallBFSCurr.first  < lowestVal  && wallBFSCurr.first <= currPlayer.first)
+    //             {
+    //                 bestwall = WallPlacement(i,j,false);
+    //                 lowestVal = wallBFSCurr.first;
+    //                 std::cout<<"the lowest Vertical wall distance is "<< wallBFSCurr.first<<std::endl;
+    //             }
+    //             removeWall(false,i,j);
+    //         }
+    //     }
+    // }
+
+    // if(lowestVal < currPlayer.first)
+    // {
+    //     m.isWall = true;
+    //     m.horizontal = bestwall.horizontal;
+    //     m.x =  bestwall.x;
+    //     m.y =  bestwall.y;
+    //     std::cout<<"("<<m.isWall<<","<<bestwall.x<< bestwall.y<<")"<<std::endl;
+    // }
+
+    #ifdef DEBUG
+    // std::cout<<"bfsdist"<<std::endl;
+    // std::cout<<otherPlayer.first<<std::endl;
+    // std::cout<<winningPath.front().x << winningPath.front().y<<std::endl;
+    #endif
+    // return currPlayer.second[1];
+    return m;
+}
+
+// playMove robidor::evalBFS_forceWall()
+// {
+//     int currentGoal = playerOneTurn ? playerOneGoal : playerTwoGoal;
+//     int currentX = playerOneTurn ? playerOneX : playerTwoX;
+//     int currentY = playerOneTurn ? playerOneY : playerTwoY;
+//     int otherX = playerOneTurn ? playerTwoX : playerOneX;
+//     int otherY = playerOneTurn ? playerTwoY : playerOneY;
+    
+//     playMove wallPM {true, true, currentX, currentY};
+
+//     int lowestVal = 9999;
+//     for(int i = 0; i < 7; i ++)
+//                 {
+//                     for(int j = 0; j < 7 ; j ++)
+//                     {
+//                         if(isWallValid(true, i, j))
+//                         {
+//                             buildWall(true,i,j);
+//                             std::pair<int,std::vector<Move>> wallBFSOther = bfsBestPath(otherX, otherY, true, playerOneTurn);
+//                             std::pair<int,std::vector<Move>> wallBFSCurr = bfsBestPath(currentX, currentY, true, playerOneTurn);
+//                             if(wallBFSCurr.first < wallBFSOther.first && wallBFSCurr.first  < lowestVal )
+//                             {
+//                                 WallPlacement bestWall = WallPlacement(j,i,true);
+//                                 lowestVal = wallBFSCurr.first;
+//                                 wallPM.x = j;
+//                                 wallPM.y = i;
+//                                 // std::cout<<"the lowest horizontal wall distance is "<< wallBFSCurr.first<<std::endl;
+//                             }
+//                             // std::cout<<wallBFSOther.first<<" "<<wallBFSCurr.first<<std::endl;
+//                             removeWall(true,i,j);
+//                         }
+//                     }
+//                     }
+//     return wallPM;
+// }
+
+void robidor::copyAPI(int otherBoard[9][9], bool otherWall[10][10])
+{
     for(int i = 0; i < 9; i ++)
     {
         for(int j = 0; j < 9; j ++)
         {
-            std::cout<<visited[i][j]<<" ";
+            if(otherBoard[i][j] != 0)
+            {
+                //update player position
+                board[playerOneY][playerOneX].player = 0;
+                board[i][j].player = otherBoard[i][j];
+            }
         }
-        std::cout<<std::endl;
     }
-    return visited;
 
+    for(int i = 0; i < 10; i ++)
+    {
+        for(int j = 0; j < 10; j ++)
+        {
+            wall[i][j] = otherWall[i][j];
+            //vertical wall down
+            if(otherWall[i][j] == true && otherWall[i-1][j] == true && i+1 < 10)
+            {
+                 if(i > 0) board[i][j-1].wallLeft = true;
+                 if(i > 0) board[i][j].wallLeft = true;
+                 if(i < 9) board[i+1][j-1].wallRight = true;
+                 if(i < 9) board[i+1][j].wallRight = true;
+            }
+            //horizontal wall
+            if(otherWall[i][j] == true && otherWall[i][j+1] == true && j+1 < 10)
+            {
+                 if(i > 0) board[i][j].wallUp = true;
+                 if(i > 0) board[i][j+1].wallUp = true;
+                 if(j > 9) board[i-1][j].wallDown = true;
+                 if(j < 9) board[i-1][j+1].wallDown = true;
+            }
+        }
+    }
 }
 
+void robidor::reset(){
+         for (int y = 0; y < 10; ++y) {
+            for (int x = 0; x < 10; ++x) {
+                wall[y][x] = false;  // False indicates no wall is present
+            }
+        }
+
+        for (int y = 0; y < 9; ++y){
+            for(int x = 0; x < 9; ++x){
+                board[y][x].wallUp = false;
+                board[y][x].wallDown = false;
+                board[y][x].wallLeft = false;
+                board[y][x].wallRight = false;
+            }
+        }
+        //lcd to remove all walls and wait for the walls to be detected as removed
+        while(playerOneX != 4 && playerOneY != 0)
+        {
+            if(playerOneX > 4)
+            {
+                //
+                move(playerOneX - 1, playerOneY);
+            }
+            if(playerOneX < 4)
+            {
+                //move right
+                move(playerOneX + 1, playerOneY);
+            }
+            if(playerOneY >= 0)
+            {
+                //move down
+                move(playerOneX, playerOneY-1);
+            }
+        }
+
+        board[0][4].player = 1;
+        board[8][4].player = 2;  
+        //reset the values
+        playerOneX = 4;
+        playerOneY = 0;
+        playerTwoX = 4;
+        playerTwoY = 8;
+        playerOneWall = playerTwoWall = 10;
+        winner = 0;
+        playerOneTurn = true;
+        //code to move robot back to its spot
+}
+
+void robidor::sendWall(int x1, int x2, int y1, int y2)
+{
+ //send coordinates to board   
+}
+
+bool robidor::detectWall()
+{
+    for(int i = 0; i < 9; i ++ )
+    {
+        for(int j = 0; j < 9; j ++)
+        {
+            if(wall[i][j] == true)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
