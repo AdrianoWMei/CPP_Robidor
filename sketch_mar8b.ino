@@ -1,6 +1,13 @@
 #include "robidor.h"
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <SoftwareSerial.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+// #define DEBUG
 
-#define DEBUG
+//bluetooth
+SerialPIO mySerial(0, 1);
+int state = 0;
 
 //define IO pins (pi pico) //-->> Arduino pro mini
 int PWR_RST[2] = {15, 2}; //pi pin 20
@@ -17,8 +24,8 @@ int MUX_S3[2] = {18, 12}; //pi pin 24
 int MUX_S4[2] = {17, 4}; //pi pin 22
 
 //standard state of buttons is digital 0
-int but1 = 13; //button 1
-int but2 = 12; //button 2
+int but1 = 14; //button 1
+int but2 = 22; //button 2
 int but3 = 11; //button 3
 int but4 = 26; //button 4
 int but5 = 27; //button 5
@@ -34,7 +41,6 @@ int HW_READ[9] = {14, 3, 15, 4, 8, 5, 9, 6, 0}; //reading index array
 int LED_Arr[9][18] = {0}; //define LED matrix
 
 int currCycle = 0;  //define current power cycle number
-
 int newTime = 0;
 int debugTime = 0;
 
@@ -42,6 +48,8 @@ int testCycle = 1;
 uint16_t portvalue = 0;
 
 int boardtype = 0; //0 for pi pico, 1 for arduino mini
+
+int count = 0; //
 
 void setup() {
   // put your setup code here, to run once:
@@ -67,71 +75,217 @@ void setup() {
   pinMode(but6, INPUT);
 
   boardReset();
+  mySerial.begin(9600);
   Serial.begin(38400);
+  Wire.setSDA(12);
+  Wire.setSCL(13);
+  Wire.begin();
+  lcd.init();
+  lcd.backlight();
 }
 
 void loop() {
   robidor gamestate;
   while(!gamestate.isGameOver())
   {
+    lightBoard();
     if(gamestate.playerOneTurn)
     {
-      if(digitalRead(but1) == 1)
+      playerMove();
+      while(gamestate.playerOneTurn)
       {
-        delay(500);
         boardRead();
-        #ifdef DEBUG
-        Serial.println(gamestate.playerOneY);
-        Serial.println(gamestate.playerOneX);
-        #endif  
-        for(int i = 0; i < 9 ; i ++)
+        matchWallLED();
+        lightBoard();
+        if(digitalRead(but1) == 1)
         {
-          for(int j = 0; j < 9 ; j ++)
+          delay(500);
+          boardRead();
+          #ifdef DEBUG
+          Serial.println(gamestate.playerOneY);
+          Serial.println(gamestate.playerOneX);
+          #endif  
+          for(int i = 0; i < 9 ; i ++)
           {
-              if(GP_Arr[i][j] == 1){
-                #ifdef DEBUG
-                Serial.println(i);
-                Serial.println(j);
-                #endif
-                if(i - gamestate.playerOneY < -2 || i - gamestate.playerOneY > 2 || j - gamestate.playerOneX < -2 || j - gamestate.playerOneX > 2)
-                {
-                  Serial.println("invalid move");
+            for(int j = 0; j < 9 ; j ++)
+            {
+                if(GP_Arr[i][j] == 1){
+                  #ifdef DEBUG
+                  Serial.println(i);
+                  Serial.println(j);
+                  #endif
+                  if(i - gamestate.playerOneY < -2 || i - gamestate.playerOneY > 2 || j - gamestate.playerOneX < -2 || j - gamestate.playerOneX > 2)
+                  {
+                    Serial.println("invalid move");
+                  }
+                  //alternatively can use a while loop with this condition if no button!
+                  if(i - gamestate.playerOneY == 0 && j - gamestate.playerOneX == 0)
+                  {
+                    Serial.println("no move detected");
+                  }
+                  if(gamestate.isWallBetween(gamestate.playerOneX, gamestate.playerOneY, j, i))
+                  {
+                    Serial.println("wall exist in between");
+                  }
+                  //ensure its player one
+                  else
+                  {
+                  gamestate.board[gamestate.playerOneY][gamestate.playerOneX].player = 0;
+                  gamestate.board[i][j].player = GP_Arr[i][j];
+                  gamestate.playerOneX = j;
+                  gamestate.playerOneY = i;
+                  gamestate.board[gamestate.playerTwoY][gamestate.playerTwoX].player = 2;
+                  }
                 }
-                //alternatively can use a while loop with this condition if no button!
-                if(i - gamestate.playerOneY == 0 && j - gamestate.playerOneX == 0)
-                {
-                  Serial.println("no move detected");
-                }
-                //ensure its player one
-                else
-                {
-                gamestate.board[gamestate.playerOneY][gamestate.playerOneX].player = 0;
-                gamestate.board[i][j].player = GP_Arr[i][j];
-                gamestate.playerOneX = j;
-                gamestate.playerOneY = i;
-                gamestate.board[gamestate.playerTwoY][gamestate.playerTwoX].player = 2;
-                }
+            }
+            for(int j = 0; j < 8; j ++)
+            {
+              if(HWall[i][j] == 1 && HWall[i][j+1] == 1 && gamestate.isWallValid(true, i, j))
+              {
+                gamestate.buildWall(true, j, i);
               }
+              // else if(HWall[i][j] == 0 && HWall[i][j+1] == 0 && gamestate.wall[i][j] == 1 && gamestate.wall[i][j+1] == 1 && gamestate.wall[i][j+2] == 1)
+              // {
+              //   gamestate.removeWall(false, j, i);
+              // }
+
+              if(VWall[i][j] == 1 && VWall[i+1][j] == 1 && gamestate.isWallValid(false, i, j))
+              {
+                gamestate.buildWall(false, j, i);
+              }
+              // else if(VWall[i][j] == 0 && VWall[i+1][j] == 0 && gamestate.wall[i][j] == 1 && gamestate.wall[i+1][j] == 1 && gamestate.wall[i+2][j] == 1)
+              //   gamestate.removeWall(false, j, i);
+              // {
+              // }
+            }
           }
+          printArr(gamestate);
+          // gamestate.changeTurn();
+          Serial.println("ending p1 turn");
         }
-        printArr(gamestate);
+        lightBoard();
+        if(digitalRead(but2) == 1)
+        {
+          delay(500);
+          gamestate.changeTurn();
+          Serial.println("ending p1 turn");
+        }
+        if(digitalRead(but3) == 1)
+        {
+          delay(500);
+          boardRead();
+          printArr(gamestate);
+        }
+        if(digitalRead(but6) == 1)
+        {
+          delay(500);
+          gamestate.reset();
+          break;
+        }
       }
-      if(digitalRead(but2) == 1)
-      {
-        delay(500);
-        gamestate.changeTurn();
-        Serial.println("ending p1 turn");
       }
-      if(digitalRead(but3) == 1)
+    else
+    {
+    lightBoard();
+    // AImove();
+    bool wallBuilt = false;
+    // playMove AImove = gamestate.evalBFS();
+    // Serial.println(count)
+    if(count % 3 == 0)
+    {
+      if(gamestate.playerOneX < 7 && gamestate.isWallValid(true, gamestate.playerOneX, gamestate.playerOneY-1) && gamestate.playerTwoWall > 5)
+      // && !gamestate.board[gamestate.playerOneY][gamestate.playerOneX].wallDown && !gamestate.board[gamestate.playerOneY][gamestate.playerOneX].wallDown)
       {
-        delay(500);
+        // Serial.println();
+        lcdPlaceAIWall();
         printArr(gamestate);
+        placeWallAI(gamestate.playerOneX, gamestate.playerOneY-1, gamestate.playerOneX + 1, gamestate.playerOneY-1);
+        count += 1;
+        gamestate.buildWall(true, gamestate.playerOneX, gamestate.playerOneY-1);
+        wallBuilt = true;
       }
     }
     else
     {
-    playMove AImove = gamestate.evalBFS();
-    gamestate.move(AImove.x,AImove.y);
+      AImove();
+      lightBoard();
+      playMove AImove = gamestate.evalBFS();
+      int dir = 0;
+      //no x movement
+      if(AImove.x - gamestate.playerTwoX == 0 && AImove.y - gamestate.playerTwoY == 1)
+      {
+        dir = 1;
+      }
+      else if(AImove.x - gamestate.playerTwoX == 0 && AImove.y - gamestate.playerTwoY == -1)
+      {
+        dir = 3;
+      }
+      else if(AImove.x - gamestate.playerTwoX == 1 && AImove.y - gamestate.playerTwoY == 0)
+      {
+        dir = 2;
+      }
+      else if(AImove.x - gamestate.playerTwoX == -1 && AImove.y - gamestate.playerTwoY == 0)
+      {
+        dir = 4;
+      }
+
+      Serial.println(dir);
+      displayLocation(AImove.x,AImove.y, dir);
+      gamestate.move(AImove.x,AImove.y);
+      mySerial.write('0');
+      switch(dir)
+      {
+        //forward
+        case 1:
+          state = 1;
+          break;
+        case 3:
+          state = 3;
+          break;
+        case 2:
+          state = 4;
+          break;
+        case 4:
+          state = 2;
+          break;
+      }
+      // state = 2;
+      mySerial.write(state);
+      delay(250);
+      // state = 0;
+      printArr(gamestate);
+      while( gamestate.board[AImove.y][AImove.x].player != (GP_Arr[AImove.y][AImove.x] + 1))
+      {
+        boardRead();
+        matchWallLED();
+        lightBoard();
+        // delay(500);
+        // Serial.println("loop");
+        if(digitalRead(but1) == 1)
+        {
+          boardRead();
+        }
+        if(digitalRead(but3) == 1)
+        {
+          Serial.println("manually ending p2 turn");
+          break;
+        }
+        if(digitalRead(but6) == 1)
+        {
+          delay(500);
+          gamestate.reset();
+          break;
+        }
+        if(gamestate.board[AImove.y][AImove.x].player == (GP_Arr[AImove.y][AImove.x] + 1))
+        {
+          count+=1;
+          printArr(gamestate);
+          Serial.println("ending p2 turn");
+          break;
+        }
+      }
+      // if(AImove.x - gamestate.playerTwoX == 0 && AImove.y - gamestate.playerTwoY == 0)
+    }
     #ifdef DEBUG
     //   Serial.println(AImove.x);
     //   Serial.println(AImove.y);
@@ -142,34 +296,67 @@ void loop() {
     //   Serial.println(gamestate.board[gamestate.playerTwoY][gamestate.playerTwoX].player);
     //   Serial.println((GP_Arr[AImove.y][AImove.x] + 1));
     #endif
-    boardRead();
-    while( gamestate.board[AImove.y][AImove.x].player != (GP_Arr[AImove.y][AImove.x] + 1))
-    {
-      //press button 1 to check if the robot moved to its right position
-      //remove this function once robot can move itself
-      if(digitalRead(but1) == 1)
-      {
-        delay(500);
-        boardRead();
-        printArr(gamestate);
-        Serial.println("board check");
-      }
-      //manual break
-      if(digitalRead(but3) == 1)
-      {
-        break;
-        Serial.println("manually ending p2 turn");
-      }
-      //automatically break if the robot has moved to its right position
-      if(gamestate.board[AImove.y][AImove.x].player == (GP_Arr[AImove.y][AImove.x] + 1))
-      {
-        break;
-        Serial.println("ending p2 turn");
-      }
-    }
+    // boardRead();
+    // while( gamestate.board[AImove.y][AImove.x].player != (GP_Arr[AImove.y][AImove.x] + 1))
+    // {
+    //   Serial.println("loop");
+    //   if(wallBuilt)
+    //   {
+    //     break;
+    //   }
+    //   // Serial.println(counter);
+    //   // delay(1000);
+    //   //press button 1 to check if the robot moved to its right position
+    //   //remove this function once robot can move itself
+    //   // if(gamestate.board[AImove.y][AImove.x].player != (GP_Arr[AImove.y][AImove.x] + 1))
+    //   // {
+    //   //   delay(500);
+    //   //   boardRead();
+    //   // }
+    //   boardRead();
+      // if(gamestate.board[AImove.y][AImove.x].player == (GP_Arr[AImove.y][AImove.x] + 1))
+      // {
+      //   count+=1;
+      //   printArr(gamestate);
+      //   Serial.println("ending p2 turn");
+      //   break;
+      // }
+
+    //   // if(digitalRead(but1) == 1)
+    //   // {
+    //   //   delay(500);
+    //   //   // count += 1;
+    //   //   boardRead();
+    //   //   printArr(gamestate);
+    //   //   Serial.println("board check");
+    //   // }
+    //   // if(digitalRead(but2) == 1)
+    //   // {
+    //   //   if(gamestate.playerOneX < 7 && gamestate.isWallValid(true, gamestate.playerOneX, gamestate.playerOneY-1))
+    //   //   {
+    //   //     // Serial.println();
+    //   //     printArr(gamestate);
+    //   //     placeWallAI(gamestate.playerOneX, gamestate.playerOneY-1, gamestate.playerOneX + 1, gamestate.playerOneY-1);
+    //   //     gamestate.buildWall(true, gamestate.playerOneX, gamestate.playerOneY);
+    //   //   }
+    //   // }
+    //   //manual break
+      // if(digitalRead(but3) == 1)
+      // {
+      //   Serial.println("manually ending p2 turn");
+      //   break;
+      // }
+    //   //automatically break if the robot has moved to its right position
+    //   // if(gamestate.board[AImove.y][AImove.x].player == (GP_Arr[AImove.y][AImove.x] + 1))
+    //   // {
+    //   //   Serial.println("ending p2 turn");
+    //   //   break;
+    //   // }
+    // }
     //check robot moved to the AImove x,y coords
     //change turns if robot did
     gamestate.changeTurn();
+    }
   }
   // put your main code here, to run repeatedly:
   /*digitalWrite(MUX_C1, LOW);
@@ -239,7 +426,6 @@ void loop() {
   //cycleLED();
   //debugCycleRead();
 }
-}
 //print array
 void printArr(robidor Gamestate){
   Serial.println();
@@ -273,8 +459,33 @@ void printArr(robidor Gamestate){
     for(int j = 0; j<9; j++){
       Serial.print(Gamestate.board[i][j].player);
     }
+    Serial.print("\t");
+    for(int j = 0; j<9; j++){
+      Serial.print(Gamestate.board[i][j].wallRight);
+    }
+    Serial.print("\t");
+    for(int j = 0; j<9; j++){
+      Serial.print(Gamestate.board[i][j].wallLeft);
+    }
+    Serial.print("\t");
+    for(int j = 0; j<9; j++){
+      Serial.print(Gamestate.board[i][j].wallDown);
+    }
+    Serial.print("\t");
+    for(int j = 0; j<9; j++){
+      Serial.print(Gamestate.board[i][j].wallUp);
+    }
     Serial.println();
   }
+
+//   for(int i = 0 ; i < 10; i ++)
+//   {
+//     for(int j = 0; j < 10; j ++)
+//     {
+//       Serial.print(Gamestate.wall[i][j]);
+//     }
+//     Serial.println();
+//   }
 }
 
 //reset the board
@@ -514,7 +725,7 @@ void placeWallAI(int x1, int y1, int x2, int y2){//inputs for wall placement fro
   //make new temporary LED array with new temporary VWall or HWall
   int tempLED[9][18];
   for(int w=0; w<18; w++){
-    Serial.println();
+    // Serial.println();
     if(w%2 == 0){
       for(int t=0; t<9; t++){
         if(VH_SEL){  //use new VWall
@@ -523,7 +734,7 @@ void placeWallAI(int x1, int y1, int x2, int y2){//inputs for wall placement fro
         else{
           tempLED[t][w] = VWall[t][w/2];
         }
-        Serial.print(tempLED[t][w]);
+        // Serial.print(tempLED[t][w]);
       }
     }
     if(w%2 == 1){
@@ -534,7 +745,7 @@ void placeWallAI(int x1, int y1, int x2, int y2){//inputs for wall placement fro
         else{
           tempLED[t][w] = HWall[t][w/2];
         }
-        Serial.print(tempLED[t][w]);
+        // Serial.print(tempLED[t][w]);
       }
     }
   }
@@ -561,9 +772,9 @@ void placeWallAI(int x1, int y1, int x2, int y2){//inputs for wall placement fro
       LED_SEL(0);
       nextCycle();
     }
-    //wait for button to be pressed
-    if(digitalRead(but1) == 1){
-      delay(500);
+    //check the board every 0.5 seconds
+    newTime = millis()+500;
+    if(millis() < newTime){
       //read board and check actual LED array and new LED array
       boardRead();
       matchWallLED();
@@ -571,16 +782,16 @@ void placeWallAI(int x1, int y1, int x2, int y2){//inputs for wall placement fro
       
       //if they match, system can exit
       wallPlaced = true;
-      Serial.println();
+      // Serial.println();
       for(int i=0; i<18; i++){
-        Serial.println();
+        // Serial.println();
         for(int j=0; j<9; j++){
           if(tempLED[j][i] != LED_Arr[j][i]){
             wallPlaced = false;
             //Serial.print(j);
             //Serial.print(i);
           }
-          Serial.print(LED_Arr[j][i]);
+          // Serial.print(LED_Arr[j][i]);
         }
       }
     }
@@ -682,4 +893,122 @@ void nextCycle(){
   digitalWrite(PWR_CLK[boardtype], HIGH);
   digitalWrite(PWR_RST[boardtype], HIGH);
   digitalWrite(PWR_CLK[boardtype], LOW);
+}
+
+void testAll()
+{
+  // testing all functions
+  invalidMove();
+  delay(2000);
+  playerMove();
+  delay(2000);
+  AImove();
+  delay(2000);
+  numWallsLeftPlayer(10);
+  delay(2000);
+  numWallsLeftAI(10);
+  delay(2000);
+  lcdPlaceAIWall();
+  delay(2000);
+  movePieceOutOfWay();
+  delay(2000);
+  displayLocation(3, 4, 3);
+  delay(2000);
+}
+
+void invalidMove()
+{
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Invalid move!");
+  lcd.setCursor(0, 1);
+  lcd.print("Try again");
+  delay(1000);
+}
+
+void playerMove()
+{
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Your move...");
+  delay(1000);
+}
+void AImove()
+{
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("AI's move...");
+  delay(1000);
+}
+
+void numWallsLeftPlayer(int num)
+{
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("You have ");
+  lcd.print(num);
+  lcd.setCursor(0, 1);
+  lcd.print("walls left");
+  delay(1000);
+}
+
+void numWallsLeftAI(int num)
+{
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("The AI has ");
+  lcd.print(num);
+  lcd.setCursor(0, 1);
+  lcd.print("walls left");
+  delay(1000);
+}
+
+void lcdPlaceAIWall()
+{
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Please place a");
+  lcd.setCursor(0, 1);
+  lcd.print("wall for the AI");
+  delay(1000);
+}
+
+void movePieceOutOfWay()
+{
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Please remove");
+  lcd.setCursor(0, 1);
+  lcd.print("piece(s) for AI");
+  delay(1000);
+}
+
+void displayLocation(int row, int col, int dir)
+{
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Row: ");
+  lcd.print(row);
+  lcd.print(" Col: ");
+  lcd.print(col);
+  lcd.setCursor(0, 1);
+  lcd.print("Facing ");
+  String direction = "";
+  switch (dir)
+  {
+    case 1:
+      direction = "North";
+      break;
+    case 2:
+      direction = "East";
+      break;
+    case 3:
+      direction = "South";
+      break;
+    case 4:
+      direction = "West";
+      break;
+  }
+  lcd.print(direction);
+  delay(1000);
 }

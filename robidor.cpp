@@ -187,20 +187,20 @@ void robidor::buildWall(bool horizontal, int x, int y)
         playerTwoWall--;
     }
 
-    if(x > 7 || x < 0)
-    {
-        #ifdef DEBUG
-        std::cout<<"out of bounds"<<std::endl;
-        #endif
-        return;
-    }
-    if(y > 7 || y < 0)
-    {
-        #ifdef DEBUG
-        std::cout<<"out of bounds"<<std::endl;
-        #endif
-        return;
-    }
+    // if(x > 8 || x < 0)
+    // {
+    //     #ifdef DEBUG
+    //     std::cout<<"out of bounds"<<std::endl;
+    //     #endif
+    //     return;
+    // }
+    // if(y > 8 || y < 0)
+    // {
+    //     #ifdef DEBUG
+    //     std::cout<<"out of bounds"<<std::endl;
+    //     #endif
+    //     return;
+    // }
 
     if(horizontal)
     {
@@ -437,30 +437,23 @@ bool robidor::isWallValid(bool horizontal, int x, int y) {
 
     if(horizontal)
     {
-        if(x+1 > 9){
-            // std::cout<<"out of bounds";
-            return false;
-        }
-        for (int i = 0; i <= 1; i++) {
-            if(wall[y][x+i] == true)
-            {
-                // std::cout<<"a wall already exist here!"<<std::endl;
-                return false;
-            }
-        }
+      for (int i = 0; i <= 1; i++) {
+          if(board[y][x+i].wallUp == true && board[y+1][x+i].wallDown == true)
+          {
+              // std::cout<<"a wall already exist here!"<<std::endl;
+              return false;
+          }
+      }
     }else
     {
-        if(y + 1 > 9){
-            // std::cout<<"out of bounds";
-            return false;
-        }
         // Place wall in 'wall' array and update 'board' cell edges accordingly
-        for (int i = 0; i <= 1; i++) {
-            if(wall[y+i][x] == true)
-            {
-                // std::cout<<"a wall already exist here!"<<std::endl;
-                return false;
-            }
+      for (int i = 0; i <= 1; i++) {
+        //update to not use wall
+          if(board[y+i][x].wallLeft == true && board[y+i][x+1].wallRight == true)
+          {
+              // std::cout<<"a wall already exist here!"<<std::endl;
+              return false;
+          }
         }
     }
 
